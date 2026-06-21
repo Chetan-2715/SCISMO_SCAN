@@ -6,7 +6,6 @@ An end-to-end framework combining **Deep Learning (YOLOv8 Segmentation)** and **
 
 ## 🚀 Quick Start (For Non-Developers)
 
-> **Your friend just needs to follow these 5 steps. No coding knowledge required.**
 
 ### Prerequisites (One-Time Install)
 1. **Install Python 3.10+** → Download from [python.org](https://www.python.org/downloads/)
@@ -26,9 +25,6 @@ An end-to-end framework combining **Deep Learning (YOLOv8 Segmentation)** and **
     STOP.bat    → Stop the app
     TRAIN.bat   → Retrain the YOLO model (optional, needs dataset)
 ```
-
-> **Note:** The pre-trained YOLO model (`backend/best_structural_model.pt`) must be included when sharing this project. Without it, the app falls back to pure OpenCV processing with reduced accuracy.
-
 ---
 
 ## 🛠️ System Overview & Architecture
@@ -78,56 +74,40 @@ To measure the physical dimensions of cracks from 2D images, the system performs
 ### 1. Pixel-to-Millimeter (PPM) Calibration
 
 **Method A — Capture Distance (Default):**
-$$\text{PPM} = \frac{W_{\text{pixel}}}{D_{\text{capture}}}$$
+$$\mathrm{PPM} = \frac{W_{\mathrm{pixel}}}{D_{\mathrm{capture}}}$$
 
 **Method B — User-Drawn Calibration Line (Recommended for accuracy):**
-$$\text{PPM} = \frac{\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}}{L_{\text{known\_mm}}}$$
+$$\mathrm{PPM} = \frac{\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}}{L_{\mathrm{known}}}$$
 
 Where:
-* $W_{\text{pixel}}$ = Total width of the image in pixels.
-* $D_{\text{capture}}$ = Capture distance of the camera from the concrete surface in millimeters (default: $300\text{ mm}$).
+* $W_{\mathrm{pixel}}$ = Total width of the image in pixels.
+* $D_{\mathrm{capture}}$ = Capture distance of the camera from the concrete surface in millimeters (default: 300 mm).
 * $(x_1, y_1), (x_2, y_2)$ = Endpoints of the user-drawn calibration line in pixels.
-* $L_{\text{known\_mm}}$ = Known physical length of the calibration reference in millimeters.
+* $L_{\mathrm{known}}$ = Known physical length of the calibration reference in millimeters.
 
 ### 2. Crack Width and Length Calculation
-The contour of a detected crack is enclosed in a minimum-area rotated bounding box ($w_{\text{px}}, h_{\text{px}}$). The physical dimensions are calculated as:
+The contour of a detected crack is enclosed in a minimum-area rotated bounding box ( $w_{\mathrm{px}}$ , $h_{\mathrm{px}}$ ). The physical dimensions are calculated as:
 
-$$\text{Width}_{\text{mm}} = \frac{\min(w_{\text{px}}, h_{\text{px}})}{\text{PPM}}$$
+$$W_{\mathrm{mm}} = \frac{\min(w_{\mathrm{px}},\ h_{\mathrm{px}})}{\mathrm{PPM}}$$
 
-$$\text{Length}_{\text{mm}} = \frac{\max(w_{\text{px}}, h_{\text{px}})}{\text{PPM}}$$
+$$L_{\mathrm{mm}} = \frac{\max(w_{\mathrm{px}},\ h_{\mathrm{px}})}{\mathrm{PPM}}$$
 
 ---
 
 ### 3. Empirical Depth Estimation (IS 456:2000 Cover Rules)
-Since depth cannot be directly measured from a surface photo, the system estimates the crack depth ($d_{\text{mm}}$) relative to the nominal concrete cover requirements of **IS 456:2000** for each structural element:
+Since depth cannot be directly measured from a surface photo, the system estimates the crack depth ( $d_{\mathrm{mm}}$ ) relative to the nominal concrete cover requirements of **IS 456:2000** for each structural element:
 
 #### **Column (40 mm Cover)**
-$$\text{Depth}_{\text{mm}} = \begin{cases} 
-\min(15.0,\, \text{Width}_{\text{mm}} \times 75.0) & \text{if } \text{Width}_{\text{mm}} \le 0.2 \\ 
-40.0 & \text{if } 0.2 < \text{Width}_{\text{mm}} \le 0.4 \\ 
-\min(40.0 + (\text{Width}_{\text{mm}} - 0.4) \times 80.0,\, 150.0) & \text{if } \text{Width}_{\text{mm}} > 0.4 
-\end{cases}$$
+$$D = \begin{cases} \min(15.0,\ W \times 75.0) & W \le 0.2 \\\ 40.0 & 0.2 < W \le 0.4 \\\ \min(40.0 + (W - 0.4) \times 80.0,\ 150.0) & W > 0.4 \end{cases}$$
 
 #### **Beam (25 mm Cover)**
-$$\text{Depth}_{\text{mm}} = \begin{cases} 
-\min(10.0,\, \text{Width}_{\text{mm}} \times 50.0) & \text{if } \text{Width}_{\text{mm}} \le 0.2 \\ 
-25.0 & \text{if } 0.2 < \text{Width}_{\text{mm}} \le 0.4 \\ 
-\min(25.0 + (\text{Width}_{\text{mm}} - 0.4) \times 60.0,\, 100.0) & \text{if } \text{Width}_{\text{mm}} > 0.4 
-\end{cases}$$
+$$D = \begin{cases} \min(10.0,\ W \times 50.0) & W \le 0.2 \\\ 25.0 & 0.2 < W \le 0.4 \\\ \min(25.0 + (W - 0.4) \times 60.0,\ 100.0) & W > 0.4 \end{cases}$$
 
 #### **Slab (20 mm Cover)**
-$$\text{Depth}_{\text{mm}} = \begin{cases} 
-\min(8.0,\, \text{Width}_{\text{mm}} \times 40.0) & \text{if } \text{Width}_{\text{mm}} \le 0.2 \\ 
-20.0 & \text{if } 0.2 < \text{Width}_{\text{mm}} \le 0.4 \\ 
-\min(20.0 + (\text{Width}_{\text{mm}} - 0.4) \times 40.0,\, 50.0) & \text{if } \text{Width}_{\text{mm}} > 0.4 
-\end{cases}$$
+$$D = \begin{cases} \min(8.0,\ W \times 40.0) & W \le 0.2 \\\ 20.0 & 0.2 < W \le 0.4 \\\ \min(20.0 + (W - 0.4) \times 40.0,\ 50.0) & W > 0.4 \end{cases}$$
 
 #### **Wall / Pavement (20 mm Cover)**
-$$\text{Depth}_{\text{mm}} = \begin{cases} 
-\min(8.0,\, \text{Width}_{\text{mm}} \times 40.0) & \text{if } \text{Width}_{\text{mm}} \le 0.2 \\ 
-20.0 & \text{if } 0.2 < \text{Width}_{\text{mm}} \le 0.4 \\ 
-\min(20.0 + (\text{Width}_{\text{mm}} - 0.4) \times 50.0,\, 60.0) & \text{if } \text{Width}_{\text{mm}} > 0.4 
-\end{cases}$$
+$$D = \begin{cases} \min(8.0,\ W \times 40.0) & W \le 0.2 \\\ 20.0 & 0.2 < W \le 0.4 \\\ \min(20.0 + (W - 0.4) \times 50.0,\ 60.0) & W > 0.4 \end{cases}$$
 
 ---
 
@@ -261,8 +241,6 @@ SCISMO_SCAN/
     └── test/
 ```
 
-> **\*** The YOLO model file (`best_structural_model.pt`) and training dataset (`dataset/`) are excluded from the repository due to file size. The model must be shared separately (e.g., via Google Drive or as a GitHub Release asset).
-
 ---
 
 ## ⚙️ Tech Stack
@@ -276,7 +254,3 @@ SCISMO_SCAN/
 | **Standards** | IS 456:2000, IS 15988:2013 |
 
 ---
-
-## 📝 License
-
-This project is developed for academic and research purposes in structural civil engineering.
