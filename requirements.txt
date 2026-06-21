@@ -1,0 +1,28 @@
+# ==============================================================
+# SCISMO SCAN - Python Dependencies
+# ==============================================================
+# Install with: pip install -r requirements.txt
+# For GPU support (NVIDIA CUDA), install PyTorch separately first:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+# For CPU only:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# ==============================================================
+
+# Core ML & Computer Vision
+ultralytics>=8.4.0
+opencv-python>=4.10.0
+numpy>=2.0.0
+scikit-learn>=1.5.0
+scipy>=1.14.0
+
+# Web Server
+fastapi>=0.115.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9
+
+# Utilities
+PyYAML>=6.0
+requests>=2.32.0
+matplotlib>=3.9.0
+pandas>=2.2.0
+pillow>=10.4.0
