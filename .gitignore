@@ -1,0 +1,61 @@
+# Python Virtual Environment
+venv/
+.venv/
+env/
+ENV/
+*.venv
+
+# Python Cache & Compiled Files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# YOLO Training Runs, Outputs & Model Weights
+backend/runs/
+backend/temp_data.yaml
+*.pt
+*.onnx
+*.engine
+
+# Dataset folder (Do not push custom dataset to GitHub)
+dataset/
+
+# Frontend dependencies and builds
+frontend/node_modules/
+frontend/dist/
+frontend/.svelte-kit/
+frontend/.next/
+frontend/out/
+
+# IDE, OS, and local configuration
+.vscode/
+.idea/
+.gemini/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
