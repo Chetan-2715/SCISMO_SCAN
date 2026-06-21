@@ -1,6 +1,33 @@
-# Civil Crack Assessment & Structural Damage Diagnostics System
+# SCISMO SCAN — Structural Crack Identification & Severity Measurement Online Scanner
 
-An end-to-end framework combining **Deep Learning (YOLOv8 Segmentation)** and **Advanced Digital Image Processing (OpenCV)** to detect concrete cracks, measure width/length, and empirically estimate crack depth. This tool is fully aligned with Indian Standard civil engineering guidelines (**IS 456:2000** and **IS 15988:2013**) to enable real-time structural health monitoring and automated damage assessment.
+An end-to-end framework combining **Deep Learning (YOLOv8 Segmentation)** and **Advanced Digital Image Processing (OpenCV)** to detect concrete cracks, measure width/length, and empirically estimate crack depth. Fully aligned with Indian Standard civil engineering guidelines (**IS 456:2000** and **IS 15988:2013**) for real-time structural health monitoring and automated damage assessment.
+
+---
+
+## 🚀 Quick Start (For Non-Developers)
+
+> **Your friend just needs to follow these 5 steps. No coding knowledge required.**
+
+### Prerequisites (One-Time Install)
+1. **Install Python 3.10+** → Download from [python.org](https://www.python.org/downloads/)
+   - ⚠️ **IMPORTANT**: Check ✅ **"Add Python to PATH"** during installation!
+2. **Install Node.js** → Download LTS from [nodejs.org](https://nodejs.org/)
+   - Install with default settings (Next → Next → Finish)
+
+### Setup & Run
+3. **Download/Extract** this project to any folder
+4. **Double-click `SETUP.bat`** — Installs all dependencies automatically (5-10 min, one-time only)
+5. **Double-click `START.bat`** — Launches the app and opens your browser 🎉
+
+```
+📁 What to click:
+    SETUP.bat   → Run ONCE (first time setup)
+    START.bat   → Run EVERY TIME to start the app
+    STOP.bat    → Stop the app
+    TRAIN.bat   → Retrain the YOLO model (optional, needs dataset)
+```
+
+> **Note:** The pre-trained YOLO model (`backend/best_structural_model.pt`) must be included when sharing this project. Without it, the app falls back to pure OpenCV processing with reduced accuracy.
 
 ---
 
@@ -17,24 +44,30 @@ The application adopts a hybrid diagnostic pipeline:
 
 The system processes incoming specimen photos through a multi-step digital image processing (DIP) pipeline:
 
-### 1. Contrast limited Adaptive Histogram Equalization (CLAHE)
+### 1. Contrast Limited Adaptive Histogram Equalization (CLAHE)
 Grayscale conversions of concrete are enhanced using CLAHE (`clipLimit=2.0`, `tileGridSize=(8,8)`). This maximizes the local contrast of dark cracks against light gray or weathered concrete surfaces, preventing details from being lost in flat exposures.
 
 ### 2. MSER Text Masking
-To prevent labels, specimen numbers, or notes written directly on concrete beams/columns from being flagged as cracks, **Maximally Stable Extremal Regions (MSER)** detection is used. The detected text hulls are dilated with a $5 \times 5$ kernel to form a mask that is subtracted from the final threshold map.
+To prevent labels, specimen numbers, or notes written directly on concrete beams/columns from being flagged as cracks, **Maximally Stable Extremal Regions (MSER)** detection is used. The detected text hulls are dilated with a $5 \times 5$ kernel to form a mask that is subtracted from the final threshold map. Text regions that overlap with deep crack voids (global threshold) are preserved to avoid masking true cracks.
 
 ### 3. Bilateral Filtering
 Traditional Gaussian blurs round out thin cracks. Instead, a Bilateral Filter (`d=9`, `sigmaColor=50`, `sigmaSpace=50`) is applied to smooth high-frequency surface concrete grain noise while preserving the sharp, defined boundaries of true cracks.
 
-### 4. Adaptive Gaussian Thresholding
-Adaptive thresholding (`blockSize=35`, `C=25`) isolates localized dark pixels from surrounding concrete. This allows the system to remain highly robust under varying lighting conditions, uneven shadows, and high-glare indoor/outdoor environments.
+### 4. Dual-Path Thresholding (Adaptive + Global)
+The system uses two complementary thresholding strategies:
+- **Adaptive Gaussian Thresholding** (`blockSize=35`, `C=20`) isolates thin, localized cracks under varying lighting conditions.
+- **Global Binary Thresholding** (`threshold=75`) captures wide, deep black voids and gaps that adaptive thresholding may miss.
+
+The system automatically selects the best path based on whether significant wide cracks are detected in the global threshold.
 
 ### 5. Contour Extraction & Elongation Filtering
 Contours are extracted from the binary map and filtered using structural geometry thresholds:
 * **Circularity Constraint**: Circularity ($\mathcal{C}$) must be $< 0.5$ to filter out circular bubble holes or surface voids.
   $$\mathcal{C} = \frac{4\pi \cdot \text{Area}}{\text{Perimeter}^2}$$
 * **Aspect Ratio**: Must be $> 1.5$ to ensure the contour is elongated.
-* **Area & Perimeter**: Minimum area of $40\text{ px}^2$ and perimeter of $30\text{ px}$ to filter out sensor speckle noise.
+* **Area & Perimeter**: Minimum area of $80\text{ px}^2$ and perimeter of $50\text{ px}$ to filter out sensor speckle noise.
+
+> When YOLO pre-validates a region, these thresholds are relaxed (lower min area, perimeter, and aspect ratio) since the ML model has already confirmed crack presence.
 
 ---
 
@@ -43,12 +76,18 @@ Contours are extracted from the binary map and filtered using structural geometr
 To measure the physical dimensions of cracks from 2D images, the system performs a coordinate and pixel-to-metric transformation, followed by empirical depth mapping.
 
 ### 1. Pixel-to-Millimeter (PPM) Calibration
-The physical resolution of the image is computed dynamically based on the camera capture distance:
+
+**Method A — Capture Distance (Default):**
 $$\text{PPM} = \frac{W_{\text{pixel}}}{D_{\text{capture}}}$$
+
+**Method B — User-Drawn Calibration Line (Recommended for accuracy):**
+$$\text{PPM} = \frac{\sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}}{L_{\text{known\_mm}}}$$
 
 Where:
 * $W_{\text{pixel}}$ = Total width of the image in pixels.
 * $D_{\text{capture}}$ = Capture distance of the camera from the concrete surface in millimeters (default: $300\text{ mm}$).
+* $(x_1, y_1), (x_2, y_2)$ = Endpoints of the user-drawn calibration line in pixels.
+* $L_{\text{known\_mm}}$ = Known physical length of the calibration reference in millimeters.
 
 ### 2. Crack Width and Length Calculation
 The contour of a detected crack is enclosed in a minimum-area rotated bounding box ($w_{\text{px}}, h_{\text{px}}$). The physical dimensions are calculated as:
@@ -127,44 +166,117 @@ The YOLOv8-segmentation model is trained using a specialized dataset curated and
 
 ## 🩹 Damage Classifications & Repairs (IS 15988:2013)
 
-* **Minor / Fine** (Width $< 1.0\text{ mm}$): Cosmetic damage. Recommendations: Surface plastering, sealant coat, painting.
-* **Medium** (Width $1.0\text{ mm} - 5.0\text{ mm}$): Moderate structural risk. Recommendations: Non-structural epoxy resin injection.
-* **Severe** (Width $> 5.0\text{ mm}$): Immediate structural hazard. Recommendations: Structural pressure grouting, concrete stitching, or localized steel plate jacketing.
+| Severity | Width Range | Action |
+| :--- | :--- | :--- |
+| **Low** (Permissible Hairline) | ≤ 0.2 mm | Surface cleaning & elastomeric protective layer application |
+| **Medium** (Initial Structural Distress) | 0.2 – 0.4 mm | Low-viscosity structural Epoxy Injection Grouting |
+| **High** (Critical Damage) | > 0.4 mm | RCC Jacketing (Columns), CFRP Wrapping (Beams), or Rebar Stitching (Walls) |
 
 ---
 
 ## 🛠️ Installation & Setup
 
-### 1. Backend Setup (FastAPI)
-Requires **Python 3.12**:
-1. Activate virtual environment:
-   ```powershell
-   .\venv\Scripts\activate
-   ```
-2. Navigate to backend and run:
-   ```powershell
-   cd backend
-   python server.py
-   ```
-   *Runs API server at `http://127.0.0.1:8000`.*
+### Method 1: One-Click Batch Scripts (Recommended)
 
-### 2. Frontend Setup (React/Vite)
-Requires **Node.js**:
-1. Navigate to frontend and install dependencies:
-   ```powershell
-   cd frontend
-   npm install
-   ```
-2. Start the dev server:
-   ```powershell
-   npm run dev
-   ```
-   *Runs frontend interface at `http://localhost:5173`.*
+**Prerequisites**: Install [Python 3.10+](https://www.python.org/downloads/) and [Node.js LTS](https://nodejs.org/).
 
-### 3. Model Training & Resuming
-To train or resume from checkpoint:
-```powershell
-cd backend
-python train_yolo.py
+| Script | Purpose | When to use |
+| :--- | :--- | :--- |
+| `SETUP.bat` | Creates virtual environment, installs all Python and Node.js dependencies | **Once** (first time only) |
+| `START.bat` | Starts backend + frontend servers, opens browser | **Every time** you want to use the app |
+| `STOP.bat` | Stops all running servers | When you're done |
+| `TRAIN.bat` | Trains/retrains the YOLO model from dataset | Optional (requires `dataset/` folder) |
+
+### Method 2: Manual Setup
+
+#### Backend (FastAPI + Python)
+```bash
+# Create and activate virtual environment
+python -m venv venv
+venv\Scripts\activate        # Windows
+source venv/bin/activate     # Linux/Mac
+
+# Install PyTorch (CPU)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# OR Install PyTorch (GPU - NVIDIA CUDA 12.4)
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu124
+
+# Install remaining dependencies
+pip install -r requirements.txt
+
+# Start the backend server
+python backend/server.py
 ```
-This script handles the Windows memory limitations (`workers=0`) and resumes from the latest available checkpoint folder in `backend/runs/segment/`.
+*Runs API server at `http://127.0.0.1:8000`*
+
+#### Frontend (React + Vite)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+*Runs frontend interface at `http://localhost:5173`*
+
+#### Model Training (Optional)
+```bash
+# Requires dataset/ folder with Roboflow-exported data
+python backend/train_yolo.py
+```
+This script auto-detects GPU/CPU, handles Windows memory limitations (`workers=0`), and resumes from the latest checkpoint in `backend/runs/segment/`.
+
+---
+
+## 📁 Project Structure
+
+```
+SCISMO_SCAN/
+├── SETUP.bat                  # One-time setup script
+├── START.bat                  # Start the application
+├── STOP.bat                   # Stop all servers
+├── TRAIN.bat                  # Train/retrain YOLO model
+├── requirements.txt           # Python dependencies
+├── .gitignore
+├── README.md
+│
+├── backend/
+│   ├── server.py              # FastAPI web server
+│   ├── crack_processor.py     # Core detection & measurement pipeline
+│   ├── train_yolo.py          # YOLO training script (auto GPU/CPU)
+│   ├── best_structural_model.pt  # Pre-trained YOLO model (not in repo*)
+│   └── ...                    # Additional utility scripts
+│
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx            # Main React application
+│   │   ├── App.css            # Styling
+│   │   └── ...
+│   ├── package.json
+│   └── ...
+│
+└── dataset/                   # Training dataset (not in repo*)
+    ├── data.yaml
+    ├── train/
+    ├── valid/
+    └── test/
+```
+
+> **\*** The YOLO model file (`best_structural_model.pt`) and training dataset (`dataset/`) are excluded from the repository due to file size. The model must be shared separately (e.g., via Google Drive or as a GitHub Release asset).
+
+---
+
+## ⚙️ Tech Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Deep Learning** | YOLOv8n-seg (Ultralytics) |
+| **Image Processing** | OpenCV, NumPy, CLAHE, MSER |
+| **Backend API** | FastAPI + Uvicorn |
+| **Frontend** | React 19 + Vite |
+| **Standards** | IS 456:2000, IS 15988:2013 |
+
+---
+
+## 📝 License
+
+This project is developed for academic and research purposes in structural civil engineering.
